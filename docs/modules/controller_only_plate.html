@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>controller_only_plate &mdash; V-PLate_detection  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> V-PLate_detection
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">V-PLate_detection</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>controller_only_plate</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for controller_only_plate</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">PIL.ImageGrab</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">imutils</span>
+<span class="kn">import</span> <span class="nn">pytesseract</span>
+<span class="kn">from</span> <span class="nn">PyQt6</span> <span class="kn">import</span> <span class="n">QtCore</span><span class="p">,</span> <span class="n">QtWidgets</span>
+<span class="kn">from</span> <span class="nn">PyQt6.QtCore</span> <span class="kn">import</span> <span class="n">Qt</span>
+<span class="kn">from</span> <span class="nn">views.plate_detection</span> <span class="kn">import</span> <span class="n">Ui_MainWindow</span>
+<span class="kn">from</span> <span class="nn">utils</span> <span class="kn">import</span> <span class="n">MoilUtils</span>
+<span class="kn">from</span> <span class="nn">controller.videoController</span> <span class="kn">import</span> <span class="n">VideoController</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">shapely.geometry</span> <span class="kn">import</span> <span class="n">Polygon</span>
+<span class="kn">from</span> <span class="nn">model.load_save</span> <span class="kn">import</span> <span class="n">Load_save</span>
+<span class="kn">from</span> <span class="nn">model.yolo_config</span> <span class="kn">import</span> <span class="n">Yolo_config</span>
+<span class="kn">from</span> <span class="nn">model.perspective_images</span> <span class="kn">import</span> <span class="n">Perspective</span>
+<span class="kn">from</span> <span class="nn">model.recognition</span> <span class="kn">import</span> <span class="n">Recognition</span>
+<span class="kn">from</span> <span class="nn">model.data_properties</span> <span class="kn">import</span> <span class="n">DataProperties</span>
+
+<span class="c1"># Start from Anto teach style</span>
+<div class="viewcode-block" id="controller"><a class="viewcode-back" href="../index.html#controller_only_plate.controller">[docs]</a><span class="k">class</span> <span class="nc">controller</span><span class="p">(</span><span class="n">Ui_MainWindow</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    test This is describe about atribute initialize</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">MainWindow</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">Ui_MainWindow</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">MainWindow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setupUi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;plate&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Load_Save</span> <span class="o">=</span> <span class="n">Load_save</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timer</span> <span class="o">=</span> <span class="n">QtCore</span><span class="o">.</span><span class="n">QTimer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">yolo_config</span> <span class="o">=</span> <span class="n">Yolo_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recognition</span> <span class="o">=</span> <span class="n">Recognition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">perspective</span> <span class="o">=</span> <span class="n">Perspective</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span> <span class="o">=</span> <span class="n">DataProperties</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">video_controller</span> <span class="o">=</span> <span class="n">VideoController</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cap</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">camera</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cam</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">record</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video_writer</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">videoDir</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_ori</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_in</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_out</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_image</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_in</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_out</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">point_in</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">point_out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate_zone2</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">Load_Save</span><span class="o">.</span><span class="n">load_param</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+
+<div class="viewcode-block" id="controller.connect"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.connect">[docs]</a>    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is to connect each push button on the user interface with the every function in the controller</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_open_file</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_open_file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_open_video</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_open_video</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_open_camera</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_open_camera</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_record</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_to_record</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_save_img_inside</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_image_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_save_img_outside</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_image_outside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_save_setting</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">Load_Save</span><span class="o">.</span><span class="n">save_param</span><span class="p">)</span>
+
+        <span class="c1"># Operation for video player</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_play_pouse_3</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_play_video</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_prev_video_3</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_prev_video</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_stop_video_3</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_stop_video</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_skip_video_3</span><span class="o">.</span><span class="n">clicked</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_skip_video</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slider_Video_3</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_slider_video</span><span class="p">)</span>
+
+        <span class="c1"># Output for original image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_fisheye</span><span class="o">.</span><span class="n">mousePressEvent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mouse_event_image_source</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wind_inside_image</span><span class="o">.</span><span class="n">mousePressEvent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mouse_event_image_anypoint</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wind_outsid_image</span><span class="o">.</span><span class="n">mousePressEvent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mouse_event_image_anypoint_out</span>
+
+        <span class="c1"># Setting parameters for create anypoint maps inside</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_in</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_in</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_in</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_out</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_in</span><span class="o">.</span><span class="n">toggled</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_in</span><span class="o">.</span><span class="n">toggled</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_out</span><span class="o">.</span><span class="n">toggled</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_out</span><span class="o">.</span><span class="n">toggled</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">)</span>
+
+        <span class="c1"># Setting parameters for create anypoint maps outside</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_out</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_out</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_out</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_ori</span><span class="o">.</span><span class="n">valueChanged</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">normal_fisheye</span><span class="p">)</span></div>
+
+    <span class="c1"># Start from MoilUtils-Template</span>
+<div class="viewcode-block" id="controller.onclick_open_file"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_open_file">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_open_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is useful when the user opens an image file that will be processed, a file format like, (*.jpeg *.jpg *.png *.gif *.bmg)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">selectFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;Select Image&quot;</span><span class="p">,</span> <span class="s2">&quot;./sample_image/&quot;</span><span class="p">,</span>
+                                        <span class="s2">&quot;Image Files (*.jpeg *.jpg *.png *.gif *.bmg)&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">readImage</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normal_fisheye</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.onclick_open_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_open_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_open_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is useful when the user opens an video file that will be processed, a file format like, (*.mp4 *.avi *.mpg *.gif *.mov)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">video_source</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">selectFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span>
+                                            <span class="s2">&quot;Select Video Files&quot;</span><span class="p">,</span>
+                                            <span class="s2">&quot;../&quot;</span><span class="p">,</span>
+                                            <span class="s2">&quot;Video Files (*.mp4 *.avi *.mpg *.gif *.mov)&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="n">video_source</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.next_frame"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.next_frame">[docs]</a>    <span class="k">def</span> <span class="nf">next_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be executed when the user runs a video associated with several functions for processing</span>
+<span class="sd">        images and videos with endless loops</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;video&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="p">:</span>
+            <span class="n">success</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">normal_fisheye</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;process streaming&quot;</span><span class="p">)</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                <span class="n">seconds</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;time:</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">seconds</span><span class="p">))</span>
+
+        <span class="c1"># start Anto guide source-code</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;process image&quot;</span><span class="p">)</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">seconds</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;image mode, time:</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">seconds</span><span class="p">))</span></div>
+
+        <span class="c1"># end Anto guide source-code</span>
+
+<div class="viewcode-block" id="controller.get_value_slider_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.get_value_slider_video">[docs]</a>    <span class="k">def</span> <span class="nf">get_value_slider_video</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is useful for viewing the time when running a video on the application</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">current_position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;pos_frame&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> \
+                           <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;frame_count&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">current_position</span></div>
+
+<div class="viewcode-block" id="controller.onclick_open_camera"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_open_camera">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_open_camera</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will open the camera with the ip link camera used, when the user will stream with</span>
+<span class="sd">        real time video when the application process is running</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;test streaming&quot;</span><span class="p">)</span>
+        <span class="n">camera_link</span> <span class="o">=</span> <span class="s2">&quot;http://10.42.0.170:8000/stream.mjpg&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="n">camera_link</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">connectToMoildev</span><span class="p">(</span><span class="s2">&quot;entaniya&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.next_frame_streaming"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.next_frame_streaming">[docs]</a>    <span class="k">def</span> <span class="nf">next_frame_streaming</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used for live-streaming and calling some functions to process images</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="p">:</span>
+            <span class="n">success</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;video&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">normal_fisheye</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span></div>
+    <span class="c1"># End from MoilUtils-Template</span>
+
+<div class="viewcode-block" id="controller.save_to_record"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.save_to_record">[docs]</a>    <span class="k">def</span> <span class="nf">save_to_record</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when the user clicks the recording button to record images in video form</span>
+<span class="sd">        format *.avi</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span><span class="p">,</span> <span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="n">record</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Recording&quot;</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">fourcc</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter_fourcc</span><span class="p">(</span><span class="o">*</span><span class="s1">&#39;XVID&#39;</span><span class="p">)</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter</span><span class="p">(</span><span class="s2">&quot;./Videos/output_video.avi&quot;</span><span class="p">,</span> <span class="n">fourcc</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">)))</span>
+
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+            <span class="n">success</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+                <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/original_image.jpg&quot;</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">record</span><span class="p">:</span>
+                    <span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.normal_fisheye"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.normal_fisheye">[docs]</a>    <span class="k">def</span> <span class="nf">normal_fisheye</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be useful for processing original images, by detecting objects in images using</span>
+<span class="sd">        Yolo algorithm which will be displayed in the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;normal image&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_value_ori</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/normal_fisheye.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_ori_draw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yolo_config</span><span class="o">.</span><span class="n">detect_using_yolo</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_ori</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_ori</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_detect_ori</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_ori</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prediction_ori</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; %&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frame_ori</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crop_image_detected</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">)</span>
+            <span class="n">center_position_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">position_ori</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">center_fish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+
+            <span class="n">real_distance_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">real_distance_h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">ori_fisheye</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># cv2.circle(self.anypoint_ori_draw,(int(center_position_obj[0]), int(center_position_obj[1])),</span>
+            <span class="c1">#            15, (0, 0, 255), -1)</span>
+            <span class="c1"># cv2.circle(self.image,</span>
+            <span class="c1">#            (int(self.center_fish[0][0]), int(self.center_fish[0][1])),</span>
+            <span class="c1">#            15, (0, 0, 255), -1)</span>
+
+            <span class="c1"># self.createAlphaBeta(int(self.x_in + real_distance_w), int(self.y_in + real_distance_h))</span>
+            <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="p">,</span> <span class="n">frame_ori</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">repository</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s2">&quot;No detected&quot;</span><span class="p">)</span>
+
+        <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_fisheye</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_ori_draw</span><span class="p">,</span> <span class="mi">600</span><span class="p">)</span></div>
+
+    <span class="c1"># Start from Moildev-SDK</span>
+<div class="viewcode-block" id="controller.anypoint_zone_1"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.anypoint_zone_1">[docs]</a>    <span class="k">def</span> <span class="nf">anypoint_zone_1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to create a new Anypoint in Zone 1 from the original image which can detect</span>
+<span class="sd">        objects automatically using the Yolo algorithm and perspective transform as a manual method</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;anypoint zone 1&quot;</span><span class="p">)</span>
+        <span class="c1"># self.anypoint_in = self.image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">remap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_in</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_value_in</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">)</span>
+        <span class="c1"># print(&quot;rotate in: {}&quot;. format(self.anypoint_in))</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/anypoint_inside/image.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yolo_config</span><span class="o">.</span><span class="n">detect_using_yolo</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_in</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_detect_in</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_in</span><span class="p">))</span>
+        <span class="c1"># self.num_detect_ori.setText(str(self.num_in))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span><span class="p">))</span>
+
+        <span class="c1"># recognition</span>
+        <span class="c1"># self.plat_num = self.recognition.recognition_character(self.anypoint_in)</span>
+        <span class="c1"># self.num_detect_ori.setText(str(self.plat_num))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prediction_in</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; %&quot;</span><span class="p">)</span>
+        <span class="c1"># self.prediction_ori.setText(str(round(self.prediction_confidence * 100, 2)) + &quot; %&quot;)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frame_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crop_image_detected</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">)</span>
+            <span class="n">center_position_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">position_in</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">center_fish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+
+            <span class="n">real_distance_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">real_distance_h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">center_position_obj</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">center_position_obj</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+                       <span class="mi">15</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># cv2.circle(self.image,</span>
+            <span class="c1">#            (int(self.center_fish[0][0]), int(self.center_fish[0][1])),</span>
+            <span class="c1">#            15, (0, 0, 255), -1)</span>
+            <span class="c1"># cv2.circle(self.image,</span>
+            <span class="c1">#            (int(self.x_in+real_distance_w), int(self.y_in+real_distance_h)),</span>
+            <span class="c1">#            10, (0, 0, 255), -1)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">createAlphaBeta</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_in</span> <span class="o">+</span> <span class="n">real_distance_w</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_in</span> <span class="o">+</span> <span class="n">real_distance_h</span><span class="p">))</span>
+            <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_in</span><span class="p">,</span> <span class="n">frame_in</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+            <span class="c1"># MoilUtils.showImageToLabel(self.repository, frame_in, 200)</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/detected_inside/image.jpg&quot;</span><span class="p">,</span> <span class="n">frame_in</span><span class="p">)</span>
+            <span class="c1"># self.pix_num_image_in.setText(str(self.center_fish))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_in</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s2">&quot;No Detected&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_in</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s2">&quot;No Image&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_image_anypoint_draw</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.show_image_anypoint_draw"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.show_image_anypoint_draw">[docs]</a>    <span class="k">def</span> <span class="nf">show_image_anypoint_draw</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to display the result of creating a new Anypoint in Zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># if self.position_in is not None:</span>
+        <span class="c1"># MoilUtils.showImageToLabel(self.original_fisheye, self.anypoint_in_draw, 600)</span>
+        <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_inside_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">,</span> <span class="mi">600</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_in_m</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.anypoint_zone_2"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.anypoint_zone_2">[docs]</a>    <span class="k">def</span> <span class="nf">anypoint_zone_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to create a new Anypoint in Zone 2 from the original image which can detect</span>
+<span class="sd">        objects automatically using the Yolo algorithm and perspective transform as a manual method</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;anypoint zone 2&quot;</span><span class="p">)</span>
+        <span class="c1"># self.anypoint_out = self.image</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">remap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_value_out</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/anypoint_outside/image.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yolo_config</span><span class="o">.</span><span class="n">detect_using_yolo</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_out</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_detect_out</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_out</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span><span class="p">))</span>
+
+        <span class="c1"># recognition</span>
+        <span class="c1"># self.plat_num = self.recognition.recognition_character(self.anypoint_out)</span>
+        <span class="c1"># self.num_detect_ori.setText(str(self.plat_num))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prediction_out</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prediction_confidence</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; %&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frame_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crop_image_detected</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">)</span>
+            <span class="n">center_position_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> \
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">position_out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">center_fish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+
+            <span class="n">real_distance_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">real_distance_h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">*</span> <span class="n">center_position_obj</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">center_position_obj</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">center_position_obj</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+                       <span class="mi">15</span><span class="p">,</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># cv2.circle(self.image,</span>
+            <span class="c1">#            (int(self.center_fish[0][0]), int(self.center_fish[0][1])),</span>
+            <span class="c1">#            15, (255, 0, 255), -1)</span>
+            <span class="c1"># cv2.circle(self.image,</span>
+            <span class="c1">#            (int(self.x_in+real_distance_w), int(self.y_in+real_distance_h)),</span>
+            <span class="c1">#            63, (0, 0, 255), -1)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">createAlphaBeta_out</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_out</span> <span class="o">+</span> <span class="n">real_distance_w</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_out</span> <span class="o">+</span> <span class="n">real_distance_h</span><span class="p">))</span>
+            <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_out</span><span class="p">,</span> <span class="n">frame_out</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/detected_outside/image.jpg&quot;</span><span class="p">,</span> <span class="n">frame_out</span><span class="p">)</span>
+            <span class="c1"># self.pix_num_image_out.setText(str(self.center_fish))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_out</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s2">&quot;No Detected&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_out</span><span class="o">.</span><span class="n">setText</span><span class="p">(</span><span class="s2">&quot;No Image&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">show_image_anypoint_draw_out</span><span class="p">()</span></div>
+    <span class="c1"># End Moildev-SDK</span>
+
+<div class="viewcode-block" id="controller.show_image_anypoint_draw_out"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.show_image_anypoint_draw_out">[docs]</a>    <span class="k">def</span> <span class="nf">show_image_anypoint_draw_out</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to display the result of creating a new Anypoint in Zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_outsid_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">,</span> <span class="mi">600</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate_zone2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_out_m</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate_zone2</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.createAlphaBeta"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.createAlphaBeta">[docs]</a>    <span class="k">def</span> <span class="nf">createAlphaBeta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is useful for making alpha, beta in images on zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span><span class="o">.</span><span class="n">get_alpha_beta</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">mapsx</span><span class="p">,</span> <span class="n">mapsy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span><span class="o">.</span><span class="n">maps_anypoint</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">zoom</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">anypoint</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">remap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="n">mapsx</span><span class="p">,</span> <span class="n">mapsy</span><span class="p">)</span>
+        <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_in</span><span class="p">,</span> <span class="n">anypoint</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">anypoint</span></div>
+
+<div class="viewcode-block" id="controller.createAlphaBeta_out"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.createAlphaBeta_out">[docs]</a>    <span class="k">def</span> <span class="nf">createAlphaBeta_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is useful for making alpha, beta in images on zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span><span class="o">.</span><span class="n">get_alpha_beta</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">mapsx</span><span class="p">,</span> <span class="n">mapsy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span><span class="o">.</span><span class="n">maps_anypoint</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">zoom</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">anypoint_out</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">remap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="n">mapsx</span><span class="p">,</span> <span class="n">mapsy</span><span class="p">)</span>
+        <span class="n">MoilUtils</span><span class="o">.</span><span class="n">showImageToLabel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_detected_out</span><span class="p">,</span> <span class="n">anypoint_out</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">anypoint_out</span></div>
+
+<div class="viewcode-block" id="controller.CenterGravity"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.CenterGravity">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">CenterGravity</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">maps_x</span><span class="p">,</span> <span class="n">maps_y</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to create the midpoint of map_X and maps_Y in the original image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="n">maps_x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">maps_y</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">maps_x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">maps_y</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">[</span><span class="n">maps_x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">maps_y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="p">[</span><span class="n">maps_x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">maps_y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+
+        <span class="n">width</span> <span class="o">=</span> <span class="n">maps_x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">maps_x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="n">maps_y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">maps_y</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">maps_x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">maps_y</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">center</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Polygon</span><span class="p">([</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">])</span><span class="o">.</span><span class="n">centroid</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span></div>
+
+<div class="viewcode-block" id="controller.crop_image_detected"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.crop_image_detected">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">crop_image_detected</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">box</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is used to crop plate images, when the program detects plates automatically and</span>
+<span class="sd">        displayed as the result of the detection plate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">frame2</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">frame2</span></div>
+
+<div class="viewcode-block" id="controller.show_image"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.show_image">[docs]</a>    <span class="k">def</span> <span class="nf">show_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to outline the polygons in the original image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">image_draw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">image_draw</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">drawPolygon</span><span class="p">(</span><span class="n">image_draw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_in</span><span class="p">)</span>
+        <span class="n">image_draw</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">drawPolygon</span><span class="p">(</span><span class="n">image_draw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_out</span><span class="p">)</span></div>
+        <span class="c1"># MoilUtils.showImageToLabel(self.original_fisheye, image_draw, 600)</span>
+
+<div class="viewcode-block" id="controller.save_image_inside"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.save_image_inside">[docs]</a>    <span class="k">def</span> <span class="nf">save_image_inside</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when saving Anypoint images in Zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">curr_datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H-%M-%S&#39;</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/anypoint_inside/img_in_&quot;</span> <span class="o">+</span> <span class="n">curr_datetime</span> <span class="o">+</span> <span class="s2">&quot;.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;save image inside&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.save_image_outside"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.save_image_outside">[docs]</a>    <span class="k">def</span> <span class="nf">save_image_outside</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when saving Anypoint images in Zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">curr_datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1"> %H-%M-%S&#39;</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;./images/anypoint_outside/img_out_&quot;</span> <span class="o">+</span> <span class="n">curr_datetime</span> <span class="o">+</span> <span class="s2">&quot;.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;save image outside&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.valueChange_inside"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.valueChange_inside">[docs]</a>    <span class="k">def</span> <span class="nf">valueChange_inside</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when the user will configure the settings to get the results from</span>
+<span class="sd">        picture on Zone 1 with direct control</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_in</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">zoom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_in</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_in</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_in</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_in</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span><span class="o">.</span><span class="n">maps_anypoint</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">zoom</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_in</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">center_fish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CenterGravity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span><span class="p">,</span>
+                                                                                             <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_in</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.valueChange_outside"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.valueChange_outside">[docs]</a>    <span class="k">def</span> <span class="nf">valueChange_outside</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when the user will configure the settings to get the results from</span>
+<span class="sd">        picture on Zone 2 with direct control</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_out</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_out</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">zoom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_out</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_out</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_out</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span><span class="o">.</span><span class="n">maps_anypoint</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">zoom</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_out</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">center_fish</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CenterGravity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span><span class="p">,</span>
+                                                                                               <span class="bp">self</span><span class="o">.</span><span class="n">maps_y_out</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">maps_x_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span></div>
+
+    <span class="c1"># Start from moilapps</span>
+<div class="viewcode-block" id="controller.mouse_event_image_source"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.mouse_event_image_source">[docs]</a>    <span class="k">def</span> <span class="nf">mouse_event_image_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when the user will click on the image to get the pixels to be seen and show on</span>
+<span class="sd">        Zone 1 and Zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;click even normal fisheye&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">button</span><span class="p">()</span> <span class="o">==</span> <span class="n">Qt</span><span class="o">.</span><span class="n">MouseButton</span><span class="o">.</span><span class="n">LeftButton</span><span class="p">:</span>
+            <span class="n">pos_x</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">x</span><span class="p">())</span>
+            <span class="n">pos_y</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">y</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;no image&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ratio_x</span><span class="p">,</span> <span class="n">ratio_y</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">ratio_image_to_label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_fisheye</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">)</span>
+                <span class="n">icx_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_x</span> <span class="o">*</span> <span class="n">ratio_x</span><span class="p">)</span>
+                <span class="n">icy_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_y</span> <span class="o">*</span> <span class="n">ratio_y</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">radioButton_inside</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;inside&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_in</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_in</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">2</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+
+                    <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_in</span><span class="o">.</span><span class="n">get_alpha_beta</span><span class="p">(</span><span class="n">icx_front</span><span class="p">,</span> <span class="n">icy_front</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_in</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">unblockSignals</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_inside</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">radioButton_outside</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;outside&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_1_out</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode_2_out</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">2</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mode</span> <span class="o">=</span> <span class="mi">1</span>
+
+                    <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">moildev_out</span><span class="o">.</span><span class="n">get_alpha_beta</span><span class="p">(</span><span class="n">icx_front</span><span class="p">,</span> <span class="n">icy_front</span><span class="p">,</span> <span class="n">mode</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_out</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_out</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">unblockSignals</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">valueChange_outside</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_1</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_zone_2</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">show_image</span><span class="p">()</span>
+
+        <span class="k">elif</span> <span class="n">e</span><span class="o">.</span><span class="n">button</span><span class="p">()</span> <span class="o">==</span> <span class="n">Qt</span><span class="o">.</span><span class="n">MouseButton</span><span class="o">.</span><span class="n">RightButton</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">menu</span> <span class="o">=</span> <span class="n">QtWidgets</span><span class="o">.</span><span class="n">QMenu</span><span class="p">()</span>
+                <span class="n">save</span> <span class="o">=</span> <span class="n">menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">&quot;Open Image&quot;</span><span class="p">)</span>
+                <span class="n">info</span> <span class="o">=</span> <span class="n">menu</span><span class="o">.</span><span class="n">addAction</span><span class="p">(</span><span class="s2">&quot;Show Info&quot;</span><span class="p">)</span>
+                <span class="n">save</span><span class="o">.</span><span class="n">triggered</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">onclick_open_camera</span><span class="p">)</span>
+                <span class="c1"># info.triggered.connect(self.onclick_help)</span>
+                <span class="n">menu</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">globalPos</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="controller.mouse_event_image_anypoint"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.mouse_event_image_anypoint">[docs]</a>    <span class="k">def</span> <span class="nf">mouse_event_image_anypoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used for perspective transform by doing 4-points on objects in Zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;click anypoint in&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">button</span><span class="p">()</span> <span class="o">==</span> <span class="n">Qt</span><span class="o">.</span><span class="n">MouseButton</span><span class="o">.</span><span class="n">LeftButton</span><span class="p">:</span>
+            <span class="n">pos_x</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">x</span><span class="p">())</span>
+            <span class="n">pos_y</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">y</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;no image&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ratio_x</span><span class="p">,</span> <span class="n">ratio_y</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">ratio_image_to_label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_inside_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">)</span>
+                <span class="n">icx_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_x</span> <span class="o">*</span> <span class="n">ratio_x</span><span class="p">)</span>
+                <span class="n">icy_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_y</span> <span class="o">*</span> <span class="n">ratio_y</span><span class="p">)</span>
+                <span class="n">coor</span> <span class="o">=</span> <span class="p">[</span><span class="n">icx_front</span><span class="p">,</span> <span class="n">icy_front</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coor</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">):</span>
+                    <span class="n">font</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span>
+                    <span class="n">org</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">fontScale</span> <span class="o">=</span> <span class="mi">2</span>
+                    <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                    <span class="n">thickness</span> <span class="o">=</span> <span class="mi">5</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">org</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">org</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">font</span><span class="p">,</span> <span class="n">fontScale</span><span class="p">,</span>
+                                                   <span class="n">color</span><span class="p">,</span> <span class="n">thickness</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span><span class="p">,</span> <span class="p">(</span><span class="n">org</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">org</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="mi">15</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">perspective_in</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="p">)</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;image_in.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">point_in</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in_draw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_in</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">show_image_anypoint_draw</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.mouse_event_image_anypoint_out"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.mouse_event_image_anypoint_out">[docs]</a>    <span class="k">def</span> <span class="nf">mouse_event_image_anypoint_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used for perspective transform by doing 4-points on objects in Zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;click anypoint out&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">button</span><span class="p">()</span> <span class="o">==</span> <span class="n">Qt</span><span class="o">.</span><span class="n">MouseButton</span><span class="o">.</span><span class="n">LeftButton</span><span class="p">:</span>
+            <span class="n">pos_x</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">x</span><span class="p">())</span>
+            <span class="n">pos_y</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">position</span><span class="p">()</span><span class="o">.</span><span class="n">y</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;no image&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ratio_x</span><span class="p">,</span> <span class="n">ratio_y</span> <span class="o">=</span> <span class="n">MoilUtils</span><span class="o">.</span><span class="n">ratio_image_to_label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wind_outsid_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">)</span>
+                <span class="n">icx_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_x</span> <span class="o">*</span> <span class="n">ratio_x</span><span class="p">)</span>
+                <span class="n">icy_front</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pos_y</span> <span class="o">*</span> <span class="n">ratio_y</span><span class="p">)</span>
+                <span class="n">coor</span> <span class="o">=</span> <span class="p">[</span><span class="n">icx_front</span><span class="p">,</span> <span class="n">icy_front</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coor</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">):</span>
+                    <span class="n">font</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span>
+                    <span class="n">org</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">fontScale</span> <span class="o">=</span> <span class="mi">2</span>
+                    <span class="n">color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                    <span class="n">thickness</span> <span class="o">=</span> <span class="mi">5</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">org</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">org</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">font</span><span class="p">,</span>
+                                                        <span class="n">fontScale</span><span class="p">,</span>
+                                                        <span class="n">color</span><span class="p">,</span> <span class="n">thickness</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span><span class="p">,</span> <span class="p">(</span><span class="n">org</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">org</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="mi">15</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate_zone2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">perspective_out</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="p">)</span>
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="s2">&quot;image_out.jpg&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_click_plate_zone2</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">point_out</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out_draw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">anypoint_out</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">show_image_anypoint_draw_out</span><span class="p">()</span></div>
+    <span class="c1"># End from moilapps</span>
+
+    <span class="c1"># Start aji guide source-code</span>
+<div class="viewcode-block" id="controller.perspective_in"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.perspective_in">[docs]</a>    <span class="k">def</span> <span class="nf">perspective_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is to create a perspective transform in zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pts1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_in</span><span class="p">)</span>
+        <span class="n">pts2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">],</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">]])</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getPerspectiveTransform</span><span class="p">(</span><span class="n">pts1</span><span class="p">,</span> <span class="n">pts2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpPerspective</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="controller.perspective_out"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.perspective_out">[docs]</a>    <span class="k">def</span> <span class="nf">perspective_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is to create a perspective transform in zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pts1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">point_out</span><span class="p">)</span>
+        <span class="n">pts2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">],</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">]])</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getPerspectiveTransform</span><span class="p">(</span><span class="n">pts1</span><span class="p">,</span> <span class="n">pts2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpPerspective</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="controller.rotate_value_ori"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.rotate_value_ori">[docs]</a>    <span class="k">def</span> <span class="nf">rotate_value_ori</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when rotating the image in Normal Fisheye</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rotate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_ori</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">rotate_matrix</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">angle</span><span class="o">=</span><span class="n">rotate</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="n">rotate_matrix</span><span class="p">,</span> <span class="n">dsize</span><span class="o">=</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="controller.rotate_value_in"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.rotate_value_in">[docs]</a>    <span class="k">def</span> <span class="nf">rotate_value_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when rotating the image in Zone 1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rotate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_in</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">rotate_matrix</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">angle</span><span class="o">=</span><span class="n">rotate</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="n">rotate_matrix</span><span class="p">,</span> <span class="n">dsize</span><span class="o">=</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="controller.rotate_value_out"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.rotate_value_out">[docs]</a>    <span class="k">def</span> <span class="nf">rotate_value_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used when rotating the image in Zone 2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rotate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate_out</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="p">(</span><span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">rotate_matrix</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getRotationMatrix2D</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">angle</span><span class="o">=</span><span class="n">rotate</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="n">rotate_matrix</span><span class="p">,</span> <span class="n">dsize</span><span class="o">=</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="controller.onclick_play_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_play_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_play_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to play the video by clicking the play button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">btn_play_pouse_3</span><span class="o">.</span><span class="n">isChecked</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.onclick_prev_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_prev_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_prev_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to previous the video by clicking the previous button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_prev_video_3</span><span class="o">.</span><span class="n">setChecked</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rewind_video</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.onclick_stop_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_stop_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_stop_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to stop the video by clicking the stop button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_play_pouse_3</span><span class="o">.</span><span class="n">setChecked</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_video</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.onclick_skip_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_skip_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_skip_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to skip the video by clicking the skip button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">btn_skip_video_3</span><span class="o">.</span><span class="n">setChecked</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forward_video</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timer</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.rewind_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.rewind_video">[docs]</a>    <span class="k">def</span> <span class="nf">rewind_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to rewind the video by clicking the rewind button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FPS</span><span class="p">)</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;pos_frame&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">fps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_FRAMES</span><span class="p">,</span> <span class="n">position</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.stop_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.stop_video">[docs]</a>    <span class="k">def</span> <span class="nf">stop_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to stop the video by clicking the stop button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_FRAMES</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.forward_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.forward_video">[docs]</a>    <span class="k">def</span> <span class="nf">forward_video</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to forward the video by clicking the forward button on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_FPS</span><span class="p">)</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;pos_frame&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">fps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_FRAMES</span><span class="p">,</span> <span class="n">position</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.onclick_slider_video"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.onclick_slider_video">[docs]</a>    <span class="k">def</span> <span class="nf">onclick_slider_video</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to clicked the slider on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slider_Video_3</span><span class="o">.</span><span class="n">maximum</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slider_controller</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">value_max</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.slider_controller"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.slider_controller">[docs]</a>    <span class="k">def</span> <span class="nf">slider_controller</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">slider_maximum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to control the slider on the user interface</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_properties</span><span class="o">.</span><span class="n">properties_video</span><span class="p">[</span><span class="s2">&quot;frame_count&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">value</span> <span class="o">/</span> <span class="n">slider_maximum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">video</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">CAP_PROP_POS_FRAMES</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">next_frame</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="controller.blockSignals"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.blockSignals">[docs]</a>    <span class="k">def</span> <span class="nf">blockSignals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to grant True access to the setting configuration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_ori</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="controller.unblockSignals"><a class="viewcode-back" href="../index.html#controller_only_plate.controller.unblockSignals">[docs]</a>    <span class="k">def</span> <span class="nf">unblockSignals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function will be used to grant False access to the setting configuration</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_ori</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_in</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_alpha_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_beta_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_zoom_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate_out</span><span class="o">.</span><span class="n">blockSignals</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span></div></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Herusp.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
